@@ -32,6 +32,7 @@ const BaiGiangSchema = new Schema({
     danhSachCauHoi: [cauHoiSchema],
 
     thoi_gian_lam_bai: { type: Number, default: 15 }, // Tính theo phút
+    giaBaiGiang: { type: Number, default: 0 }, // Giá bán bài giảng (nếu có hệ thống thanh toán)
     ngay_tao: { type: Date, default: Date.now }
 });
 

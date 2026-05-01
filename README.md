@@ -4,28 +4,6 @@
 
 ---
 
-## 🌟 **Tính Năng Nổi Bật**
-
-### 🔐 **Hệ Thống Xác Thực & Bảo Mật**
-
-- **JWT Authentication**: Quản lý phiên làm việc an toàn bằng _JSON Web Token_, giúp đồng bộ trạng thái đăng nhập mượt mà giữa Web và App.
-- **Xác Thực OTP**: Quy trình đăng ký tài khoản nghiêm ngặt với bước xác thực mã _OTP_ để đảm bảo tính chính chủ và bảo mật.
-- **Biometric Login**: Đăng nhập siêu tốc bằng _FaceID_ hoặc _Vân tay_ (Biometrics), mang lại trải nghiệm tiện lợi tối đa cho người dùng di động.
-
-### 🏟️ **Cộng Đồng & Tương Tác Realtime**
-
-- **Cộng đồng năng động**: Cho phép người dùng _đăng bài, chia sẻ kinh nghiệm_ và thảo luận các kiến thức ôn thi ngay trên ứng dụng.
-- **Tương tác thời gian thực**: Các bài đăng và phản hồi được cập nhật tức thì, tạo nên một môi trường học tập sôi nổi.
-- **Bảng xếp hạng**: Thách đấu cùng bạn bè, so tài kiến thức và cập nhật thứ hạng trực tuyến.
-
-### 📖 **Quản Lý Học Tập**
-
-- **Sáng tạo bộ đề**: Người dùng có thể _tự tạo bộ đề thi trắc nghiệm riêng_ hoặc ôn luyện theo kho dữ liệu có sẵn.
-- **Kết quả tức thì**: Nhận điểm số và lời giải chi tiết ngay sau khi hoàn thành bài thi.
-- **Onboarding sinh động**: Dẫn dắt người dùng mới bằng hệ thống giới thiệu tích hợp hiệu ứng _Lottie Animation_ chuyên nghiệp.
-
----
-
 ## 🛠️ **Công Nghệ Sử Dụng**
 
 > Dự án sử dụng kiến trúc **Full-stack hiện đại**, ưu tiên hiệu năng và khả năng mở rộng.

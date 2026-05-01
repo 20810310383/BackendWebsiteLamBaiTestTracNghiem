@@ -15,16 +15,7 @@ const uploadAudioRoute = require("./routes/uploadAudioRoute");
 const uploadDocumentRoute = require("./routes/uploadDocumentRoute");
 const authRouter = require("./routes/authRouter");
 const nguoiDungRoutes = require("./routes/nguoiDungRoutes");
-const theLoaiDeThiRoutes = require("./routes/theLoaiDeThiRoutes");
-const deThiRoutes = require("./routes/deThiRoutes");
-const lichSuThiRoutes = require("./routes/lichSuThiRoutes");
-const bangXepHangRoutes = require("./routes/bangXepHangRoutes");
-const chinhSachRoutes = require("./routes/chinhSachRoutes");
-const baiVietRoutes = require("./routes/baiVietRoutes");
-const baiVietHayRoutes = require("./routes/baiVietHayRoutes");
-const theLoaiBaiVietRoutes = require("./routes/theLoaiBaiVietRoutes");
-const documentRoutes = require("./routes/documentRoutes");
-const sitemapRoute = require("./routes/sitemap");
+
 // const crawlRoutes = require("./routes/crawlRoutes");
 
 // ==========================================
@@ -40,7 +31,8 @@ connectDB();
 const allowedOrigins = [
   "http://localhost:2003",
   "https://ktquizz.vercel.app",
-  "https://vuaquiz.com"
+  "https://vuaquiz.com",
+  'chrome-extension://gimjcdniohfjmmbhhdbcogfkfkbogfmn'
 ];
 
 app.use(
@@ -84,15 +76,15 @@ const routes = [
   { path: "/api/upload-document", router: uploadDocumentRoute },
   { path: '/api/auth', router: authRouter },
   { path: '/api/nguoidung', router: nguoiDungRoutes },
-  { path: '/api/theloaidethi', router: theLoaiDeThiRoutes },
-  { path: '/api/bodethi', router: deThiRoutes },
-  { path: '/api/lichsuthi', router: lichSuThiRoutes },
-  { path: '/api/bangxephang', router: bangXepHangRoutes },
-  { path: '/api/chinhsach', router: chinhSachRoutes },
-  { path: '/api/baiviet', router: baiVietRoutes },
-  { path: '/api/documents', router: documentRoutes },
-  { path: "/api/the-loai-bai-viet", router: theLoaiBaiVietRoutes },
-  { path: "/api/bai-viet-hay", router: baiVietHayRoutes },
+  // { path: '/api/theloaidethi', router: theLoaiDeThiRoutes },
+  // { path: '/api/bodethi', router: deThiRoutes },
+  // { path: '/api/lichsuthi', router: lichSuThiRoutes },
+  // { path: '/api/bangxephang', router: bangXepHangRoutes },
+  // { path: '/api/chinhsach', router: chinhSachRoutes },
+  // { path: '/api/baiviet', router: baiVietRoutes },
+  // { path: '/api/documents', router: documentRoutes },
+  // { path: "/api/the-loai-bai-viet", router: theLoaiBaiVietRoutes },
+  // { path: "/api/bai-viet-hay", router: baiVietHayRoutes },
   // { path: "/api/crawldata", router: crawlRoutes },
 
 ];
