@@ -1,6 +1,13 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 
 const LopHocSchema =  new mongoose.Schema({
+  maKey: {
+    type: String,
+    unique: true,
+    uppercase: true,
+    default: () => crypto.randomBytes(3).toString("hex").toUpperCase(),
+  },
   ten_lop: { type: String, required: true },
   anh_lop: { type: String,  },
   ma_lop_random: { type: String, unique: true, required: true }, // Mã để SV nhập

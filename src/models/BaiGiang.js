@@ -12,7 +12,7 @@ const cauHoiSchema = new mongoose.Schema({
   giaiThich: { type: String, trim: true }, 
 });
 
-const BaiGiangSchema = new Schema({
+const BaiGiangSchema = new mongoose.Schema({
     maBaiGiang: { 
         type: String, 
         unique: true, 
@@ -24,7 +24,7 @@ const BaiGiangSchema = new Schema({
     anhDaiDien: { type: String },
     gioiThieu: { type: String },
     
-    monHoc: { type: mongoose.Schema.Types.ObjectId, ref: 'MonHoc' },
+    // monHoc: { type: mongoose.Schema.Types.ObjectId, ref: 'MonHoc' },
     // Nội dung học tập
     noi_dung_bai_hoc: { type: String, default: "" },
 
