@@ -1,8 +1,8 @@
 const jwt = require("jsonwebtoken");
 
 exports.generateToken = (user) => {
-  // Xác định số giây (User: 60s, Admin: 24h)
-  const seconds = user.role === "admin" ? 24 * 60 * 60 : 6 * 60 * 60; 
+  // Xác định số giây (User: 12h, Admin: 24h)
+  const seconds = user.role === "admin" ? 24 * 60 * 60 : 12 * 60 * 60; 
 
   const token = jwt.sign(
     { id: user._id, role: user.role },

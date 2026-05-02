@@ -15,6 +15,7 @@ const uploadAudioRoute = require("./routes/uploadAudioRoute");
 const uploadDocumentRoute = require("./routes/uploadDocumentRoute");
 const authRouter = require("./routes/authRouter");
 const nguoiDungRoutes = require("./routes/nguoiDungRoutes");
+const lopHocRoutes = require("./routes/lopHocRoutes");
 
 // const crawlRoutes = require("./routes/crawlRoutes");
 
@@ -29,9 +30,7 @@ connectDB();
 
 // ================= CORS =================
 const allowedOrigins = [
-  "http://localhost:2003",
-  "https://ktquizz.vercel.app",
-  "https://vuaquiz.com",
+  "http://localhost:2004",
   'chrome-extension://gimjcdniohfjmmbhhdbcogfkfkbogfmn'
 ];
 
@@ -76,16 +75,7 @@ const routes = [
   { path: "/api/upload-document", router: uploadDocumentRoute },
   { path: '/api/auth', router: authRouter },
   { path: '/api/nguoidung', router: nguoiDungRoutes },
-  // { path: '/api/theloaidethi', router: theLoaiDeThiRoutes },
-  // { path: '/api/bodethi', router: deThiRoutes },
-  // { path: '/api/lichsuthi', router: lichSuThiRoutes },
-  // { path: '/api/bangxephang', router: bangXepHangRoutes },
-  // { path: '/api/chinhsach', router: chinhSachRoutes },
-  // { path: '/api/baiviet', router: baiVietRoutes },
-  // { path: '/api/documents', router: documentRoutes },
-  // { path: "/api/the-loai-bai-viet", router: theLoaiBaiVietRoutes },
-  // { path: "/api/bai-viet-hay", router: baiVietHayRoutes },
-  // { path: "/api/crawldata", router: crawlRoutes },
+  { path: '/api/lop-hoc', router: lopHocRoutes },
 
 ];
 

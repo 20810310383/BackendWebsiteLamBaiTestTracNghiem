@@ -52,7 +52,7 @@ exports.registerTK = async (req, res) => {
       const existedPhone = await NguoiDung.findOne({ ma_so });
       if (existedPhone && existedPhone.isActive) {
         return res.status(400).json({ 
-          message: "Mã số này đã được đăng ký. Vui lòng chọn Mã số khác!" 
+          message: "Mã sinh viên này đã được đăng ký. Vui lòng chọn Mã sinh viên khác!" 
         });
       }
     }
@@ -313,7 +313,7 @@ exports.doiMatKhau = async (req, res) => {
 exports.capNhatThongTin = async (req, res) => {
   try {
     // 1️⃣ Lấy các trường từ body theo đúng chuẩn snake_case của Model
-    const { ho_ten, so_dien_thoai, anh_dai_dien, ten_lop_sinh_hoat } = req.body;
+    const { ho_ten, so_dien_thoai, anh_dai_dien, ten_lop_sinh_hoat, gioiThieu} = req.body;
 
     // 2️⃣ Tìm người dùng từ ID (lấy từ middleware verifyToken/protect)
     const user = await NguoiDung.findById(req.user._id);
@@ -331,6 +331,7 @@ exports.capNhatThongTin = async (req, res) => {
     if (so_dien_thoai !== undefined) user.so_dien_thoai = so_dien_thoai;
     if (anh_dai_dien !== undefined) user.anh_dai_dien = anh_dai_dien;
     if (ten_lop_sinh_hoat !== undefined) user.ten_lop_sinh_hoat = ten_lop_sinh_hoat;
+    if (gioiThieu !== undefined) user.gioiThieu = gioiThieu;
 
     // Lưu lại vào MongoDB
     await user.save();
@@ -347,6 +348,7 @@ exports.capNhatThongTin = async (req, res) => {
         so_dien_thoai: user.so_dien_thoai,
         anh_dai_dien: user.anh_dai_dien,
         ten_lop_sinh_hoat: user.ten_lop_sinh_hoat,
+        gioiThieu: user.gioiThieu,
         role: user.role
       }
     });

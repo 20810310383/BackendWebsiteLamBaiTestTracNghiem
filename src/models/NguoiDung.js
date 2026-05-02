@@ -13,6 +13,7 @@ const nguoiDungSchema = new mongoose.Schema({
   },
   ten_lop_sinh_hoat: { type: String }, // Ví dụ: IT01, Marketing02
   anh_dai_dien: { type: String, default: "" },
+  gioiThieu: { type: String, default: "" },
   trang_thai_hoat_dong: { type: Boolean, default: true },
   ngay_tao: { type: Date, default: Date.now },
   soDu: { type: Number, default: 0 }, // Số dư tài khoản (nếu có hệ thống thanh toán)

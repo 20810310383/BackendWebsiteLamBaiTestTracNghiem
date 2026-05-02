@@ -1,9 +1,10 @@
 const mongoose = require("mongoose");
 
-const LopHocSchema = new Schema({
+const LopHocSchema =  new mongoose.Schema({
   ten_lop: { type: String, required: true },
+  anh_lop: { type: String,  },
   ma_lop_random: { type: String, unique: true, required: true }, // Mã để SV nhập
-  id_mon_hoc: { type: mongoose.Schema.Types.ObjectId, ref: 'MonHoc', required: true },
+  // id_mon_hoc: { type: mongoose.Schema.Types.ObjectId, ref: 'MonHoc', required: true },
   id_giaovien: { type: mongoose.Schema.Types.ObjectId, ref: 'NguoiDung', required: true },
   
   // Quản lý học viên tham gia và phê duyệt
@@ -18,7 +19,7 @@ const LopHocSchema = new Schema({
   }],
   
   mo_ta_lop: { type: String },
-  si_so_toi_da: { type: Number, default: 50 },
+  si_so_toi_da: { type: Number, default: 100 },
   ngay_bat_dau: { type: Date, default: Date.now }
 });
 
