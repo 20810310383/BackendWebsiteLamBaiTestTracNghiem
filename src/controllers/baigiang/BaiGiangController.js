@@ -176,7 +176,7 @@ const baiGiangController = {
 
       const baiGiang = await BaiGiang.findById(id)
         .populate('id_lop_hoc', 'ten_lop ma_lop_random id_giaovien danh_sach_hoc_vien')
-        .populate('monHoc', 'ten_mon_hoc ma_mon_hoc');
+        // .populate('monHoc', 'ten_mon_hoc ma_mon_hoc');
 
       if (!baiGiang) {
         return res.status(404).json({ message: "Không tìm thấy bài giảng" });
@@ -348,7 +348,7 @@ const baiGiangController = {
       const [baiGiangs, total] = await Promise.all([
         BaiGiang.find({ id_lop_hoc: lopHoc._id })
           // .populate('monHoc', 'ten_mon_hoc')
-          .select('maBaiGiang ten_bai_giang anhDaiDien gioiThieu thoi_gian_lam_bai giaBaiGiang ngay_tao danhSachCauHoi')
+          .select('maBaiGiang ten_bai_giang anhDaiDien gioiThieu noi_dung_bai_hoc thoi_gian_lam_bai giaBaiGiang ngay_tao danhSachCauHoi')
           .sort({ ngay_tao: -1 })
           .skip(skip)
           .limit(parseInt(limit)),
