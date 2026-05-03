@@ -27,6 +27,9 @@ router.get("/xem-dap-an/:id_bai_giang", authMiddleware, BaiGiangThuongMaiControl
 // Lịch sử thi
 router.get("/lich-su-thi", authMiddleware, BaiGiangThuongMaiController.getLichSuThi);
 
+// Lấy tiến độ học tập
+router.get("/tien-do-hoc-tap", authMiddleware, BaiGiangThuongMaiController.getTienDoHocTap);
+
 /**
  * ================================
  * ROUTES CHO GIÁO VIÊN (THỐNG KÊ)

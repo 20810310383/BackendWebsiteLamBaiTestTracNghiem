@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const BaiGiangDaMua = require("../../models/BaiGiangDaMua");
 const KetQuaBaiThi = require("../../models/KetQuaBaiThi");
 const BaiGiang = require("../../models/BaiGiang");
@@ -288,10 +289,11 @@ exports.nopBaiThi = async (req, res) => {
 
     await ketQua.save();
 
-    // 6. Cập nhật trạng thái đã mua
+    // 6. Cập nhật trạng thái đã mua (điểm >= 8 là hoàn thành)
+    const diemSo = parseFloat(diem);
     await BaiGiangDaMua.findOneAndUpdate(
       { id_hoc_sinh, id_bai_giang },
-      { trang_thai: 'dang_hoc' }
+      { trang_thai: diemSo >= 8 ? 'da_hoan_thanh' : 'dang_hoc' }
     );
 
     res.status(200).json({
@@ -702,6 +704,54 @@ exports.getLichSuThi = async (req, res) => {
 
   } catch (error) {
     console.error("Lỗi lấy lịch sử thi:", error);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// Lấy tiến độ học tập của học sinh
+exports.getTienDoHocTap = async (req, res) => {
+  try {
+    const id_hoc_sinh = req.user.id;
+
+    // 1. Đếm tổng số bài đã mua
+    const tongBaiDaMua = await BaiGiangDaMua.countDocuments({ id_hoc_sinh });
+
+    // 2. Đếm số bài đã hoàn thành (trang_thai = 'da_hoan_thanh')
+    const baiDaHoanThanh = await BaiGiangDaMua.countDocuments({
+      id_hoc_sinh,
+      trang_thai: 'da_hoan_thanh'
+    });
+
+    // 3. Đếm tổng số lần thi đã làm
+    const soLanThi = await KetQuaBaiThi.countDocuments({ id_hoc_sinh });
+
+    // 4. Tính điểm trung bình (nếu có bài thi)
+    const avgDiem = await KetQuaBaiThi.aggregate([
+      { $match: { id_hoc_sinh: new mongoose.Types.ObjectId(id_hoc_sinh) } },
+      { $group: { _id: null, diemTrungBinh: { $avg: "$diem" } } }
+    ]);
+
+    // 5. Tính phần trăm hoàn thành
+    const phanTramHoanThanh = tongBaiDaMua > 0 
+      ? Math.round((baiDaHoanThanh / tongBaiDaMua) * 100) 
+      : 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        tongBaiDaMua,
+        baiDaHoanThanh,
+        baiDangHoc: tongBaiDaMua - baiDaHoanThanh,
+        soLanThi,
+        diemTrungBinh: avgDiem[0]?.diemTrungBinh 
+          ? Math.round(avgDiem[0].diemTrungBinh * 10) / 10 
+          : 0,
+        phanTramHoanThanh
+      }
+    });
+
+  } catch (error) {
+    console.error("Lỗi lấy tiến độ học tập:", error);
     res.status(500).json({ success: false, message: "Lỗi server" });
   }
 };
