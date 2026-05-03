@@ -46,16 +46,37 @@ exports.getLichSuThi = async (req, res) => {
     }
 
     // Tìm kiếm theo tên/MSSV/email học sinh
-    let searchQuery = {};
+    // Sử dụng aggregation để join với NguoiDung trước khi tìm kiếm
+    let searchMatch = {};
     if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      searchQuery = {
+      // Escape special regex characters
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = new RegExp(escapedSearch, 'i');
+      
+      // Tìm các _id của học sinh thỏa điều kiện
+      const hocSinhMatches = await NguoiDung.find({
         $or: [
-          { 'id_hoc_sinh.ho_ten': searchRegex },
-          { 'id_hoc_sinh.ma_so': searchRegex },
-          { 'id_hoc_sinh.email': searchRegex },
-          { 'id_hoc_sinh.so_dien_thoai': searchRegex },
-          { 'id_bai_giang.ten_lop_sinh_hoat': searchRegex },
+          { ho_ten: searchRegex },
+          { ma_so: searchRegex },
+          { email: searchRegex },
+          { so_dien_thoai: searchRegex },
+          { ten_lop_sinh_hoat: searchRegex }
+        ]
+      }).select('_id');
+      
+      const hocSinhIds = hocSinhMatches.map(hs => hs._id);
+      
+      // Tìm các bài giảng có tên chứa từ khóa
+      const baiGiangMatches = await BaiGiang.find({
+        ten_bai_giang: searchRegex
+      }).select('_id');
+      
+      const baiGiangIds = baiGiangMatches.map(bg => bg._id);
+      
+      searchMatch = {
+        $or: [
+          { id_hoc_sinh: { $in: hocSinhIds } },
+          { id_bai_giang: { $in: baiGiangIds } }
         ]
       };
     }
@@ -63,7 +84,7 @@ exports.getLichSuThi = async (req, res) => {
     // Đếm tổng
     const total = await KetQuaBaiThi.countDocuments({
       ...query,
-      ...searchQuery
+      ...searchMatch
     });
 
     // Tính pagination
@@ -73,7 +94,7 @@ exports.getLichSuThi = async (req, res) => {
     // Query với populate
     const lichSuThi = await KetQuaBaiThi.find({
       ...query,
-      ...searchQuery
+      ...searchMatch
     })
       .populate('id_hoc_sinh', 'ho_ten ma_so email anh_dai_dien so_dien_thoai ten_lop_sinh_hoat')
       .populate('id_bai_giang', 'ten_bai_giang maBaiGiang')
