@@ -295,16 +295,16 @@ exports.toggleStatus = async (req, res) => {
       });
     }
 
-    user.trang_thai_hoat_dong = !user.trang_thai_hoat_dong;
+    user.isActive = !user.isActive;
     await user.save();
 
     res.status(200).json({
       success: true,
-      message: user.trang_thai_hoat_dong ? "Đã mở khóa tài khoản" : "Đã khóa tài khoản",
+      message: user.isActive ? "Đã mở khóa tài khoản" : "Đã khóa tài khoản",
       data: {
         _id: user._id,
         ho_ten: user.ho_ten,
-        trang_thai_hoat_dong: user.trang_thai_hoat_dong
+        trang_thai_hoat_dong: user.isActive
       }
     });
   } catch (error) {
