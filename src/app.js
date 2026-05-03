@@ -17,6 +17,7 @@ const authRouter = require("./routes/authRouter");
 const nguoiDungRoutes = require("./routes/nguoiDungRoutes");
 const lopHocRoutes = require("./routes/lopHocRoutes");
 const baiGiangRoutes = require("./routes/baiGiangRoutes");
+const baiGiangThuongMaiRoutes = require("./routes/baiGiangThuongMaiRoutes");
 
 // const crawlRoutes = require("./routes/crawlRoutes");
 
@@ -78,6 +79,7 @@ const routes = [
   { path: '/api/nguoidung', router: nguoiDungRoutes },
   { path: '/api/lop-hoc', router: lopHocRoutes },
   { path: '/api/bai-giang', router: baiGiangRoutes },
+  { path: '/api/bai-giang-thuong-mai', router: baiGiangThuongMaiRoutes },
 
 ];
 
