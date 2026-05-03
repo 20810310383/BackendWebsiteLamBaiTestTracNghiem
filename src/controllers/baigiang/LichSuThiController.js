@@ -53,7 +53,9 @@ exports.getLichSuThi = async (req, res) => {
         $or: [
           { 'id_hoc_sinh.ho_ten': searchRegex },
           { 'id_hoc_sinh.ma_so': searchRegex },
-          { 'id_hoc_sinh.email': searchRegex }
+          { 'id_hoc_sinh.email': searchRegex },
+          { 'id_hoc_sinh.so_dien_thoai': searchRegex },
+          { 'id_bai_giang.ten_lop_sinh_hoat': searchRegex },
         ]
       };
     }
@@ -73,7 +75,7 @@ exports.getLichSuThi = async (req, res) => {
       ...query,
       ...searchQuery
     })
-      .populate('id_hoc_sinh', 'ho_ten ma_so email anh_dai_dien')
+      .populate('id_hoc_sinh', 'ho_ten ma_so email anh_dai_dien so_dien_thoai ten_lop_sinh_hoat')
       .populate('id_bai_giang', 'ten_bai_giang maBaiGiang')
       .populate('id_lop_hoc', 'ten_lop ma_lop_random')
       .populate('id_giao_vien', 'ho_ten ma_so')
