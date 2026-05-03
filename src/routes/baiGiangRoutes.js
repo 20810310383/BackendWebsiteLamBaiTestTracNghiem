@@ -1,5 +1,23 @@
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
+const path = require("path");
+
+// Cấu hình multer cho upload Word
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.docx') {
+      cb(null, true);
+    } else {
+      cb(new Error("Chỉ chấp nhận file .docx"));
+    }
+  },
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+});
+
 const baiGiangController = require("../controllers/baigiang/BaiGiangController");
 const { protect } = require("../middlewares/authMiddleware");
 const { checkRole } = require("../middlewares/authMiddlewareFull");
@@ -95,6 +113,15 @@ router.put(
   protect,
   checkRole(['admin', 'giaovien']),
   baiGiangController.sapXepCauHoi
+);
+
+// Import câu hỏi từ file Word
+router.post(
+  "/:id/cau-hoi/import-word",
+  protect,
+  checkRole(['admin', 'giaovien']),
+  upload.single('file'),
+  baiGiangController.importCauHoiTuWord
 );
 
 /* ──────────────────────────────────────────────────────────────────

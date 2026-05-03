@@ -1,5 +1,9 @@
 const BaiGiang = require("../../models/BaiGiang");
 const LopHoc = require("../../models/LopHoc");
+const mammoth = require("mammoth");
+const cheerio = require("cheerio");
+const fs = require("fs");
+const path = require("path");
 
 const baiGiangController = {
   // ============================================================
@@ -709,7 +713,182 @@ const baiGiangController = {
       console.error("Lỗi thống kê bài giảng:", error);
       res.status(500).json({ message: "Lỗi khi thống kê", error: error.message });
     }
+  },
+
+  // ============================================================
+  // 13. IMPORT CÂU HỎI TỪ FILE WORD
+  // ============================================================
+  importCauHoiTuWord: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { filename } = req.body;
+
+      // Kiểm tra bài giảng tồn tại
+      const baiGiang = await BaiGiang.findById(id);
+      if (!baiGiang) {
+        return res.status(404).json({ message: "Không tìm thấy bài giảng" });
+      }
+
+      // Kiểm tra quyền
+      const lopHoc = await LopHoc.findById(baiGiang.id_lop_hoc);
+      if (req.user.role !== 'admin' && lopHoc.id_giaovien.toString() !== req.user.id) {
+        return res.status(403).json({ message: "Bạn không có quyền thêm câu hỏi vào bài giảng này" });
+      }
+
+      // Đường dẫn file (từ src/controllers/baigiang/ lên 3 cấp = Backend/)
+      const filePath = path.join(__dirname, "../../../public/uploads/docs", filename);
+      
+      if (!fs.existsSync(filePath)) {
+        // Debug: log path để kiểm tra
+        console.log("File path:", filePath);
+        console.log("File exists:", fs.existsSync(filePath));
+        return res.status(400).json({ message: "File không tồn tại: " + filePath });
+      }
+
+      // Đọc file từ disk
+      const buffer = fs.readFileSync(filePath);
+      
+      // Đọc raw text để parse
+      const textResult = await mammoth.extractRawText({ buffer });
+      const text = textResult.value;
+      
+      // Đọc HTML để detect bold (đáp án đúng)
+      const htmlResult = await mammoth.convertToHtml({ buffer });
+      const html = htmlResult.value;
+      
+      // Debug: log text và html
+      console.log("=== RAW TEXT ===");
+      console.log(text);
+      console.log("=== HTML (first 2000 chars) ===");
+      console.log(html.substring(0, 2000));
+
+      // Parse câu hỏi
+      const cauHois = parseQuestionsFromHtml(text, html);
+
+      if (cauHois.length === 0) {
+        return res.status(400).json({ 
+          message: "Không tìm thấy câu hỏi nào trong file. Vui lòng kiểm tra định dạng.",
+          debug: {
+            textLength: text.length,
+            htmlLength: html.length,
+            textPreview: text.substring(0, 500)
+          },
+          huongDan: "Mỗi câu hỏi cách nhau 1 dòng trống. Đáp án đúng bôi đậm (bold) trong Word."
+        });
+      }
+
+      // Thêm câu hỏi vào bài giảng
+      baiGiang.danhSachCauHoi.push(...cauHois);
+      await baiGiang.save();
+
+      // Xóa file sau khi đã xử lý
+      fs.unlinkSync(filePath);
+
+      res.status(201).json({
+        success: true,
+        message: `Import thành công ${cauHois.length} câu hỏi`,
+        soCauHoiThem: cauHois.length,
+        tongSoCauHoi: baiGiang.danhSachCauHoi.length,
+        chiTiet: cauHois.map((ch, i) => ({
+          stt: i + 1,
+          noiDung: ch.noiDungCauHoi.substring(0, 50) + '...'
+        }))
+      });
+    } catch (error) {
+      console.error("Lỗi import Word:", error);
+      res.status(500).json({ message: "Lỗi khi import file Word", error: error.message });
+    }
   }
 };
+
+// Hàm parse câu hỏi từ HTML
+// - 5 paragraphs liên tiếp = 1 câu hỏi (câu hỏi + 4 đáp án)
+// - Đáp án đúng được bôi đậm (bold) trong Word
+function parseQuestionsFromHtml(text, html) {
+  const cauHois = [];
+  const $ = cheerio.load(html);
+  
+  // Lấy danh sách paragraphs với thông tin bold
+  const paragraphs = [];
+  $('p').each((i, el) => {
+    const $el = $(el);
+    const htmlContent = $.html(el);
+    const textContent = $el.text().trim();
+    
+    if (!textContent) return;
+    
+    // Kiểm tra xem có chứa text bold không (đáp án đúng)
+    const isCorrect = htmlContent.includes('<strong>') || htmlContent.includes('<b>');
+    
+    // Lấy text bên trong thẻ bold nếu có
+    let correctText = null;
+    if (isCorrect) {
+      const $strong = $el.find('strong').first();
+      if ($strong.length) {
+        correctText = $strong.text().trim().replace(/^[A-D]\.\s*/, '');
+      }
+    }
+    
+    paragraphs.push({
+      text: textContent,
+      isCorrect,
+      correctText
+    });
+  });
+  
+  console.log("Total paragraphs:", paragraphs.length);
+  
+  // Nhóm 5 paragraphs = 1 câu hỏi (câu hỏi + 4 đáp án)
+  // Sau 4 câu hỏi có thể có 1 dòng Note: (giải thích)
+  for (let i = 0; i + 4 < paragraphs.length; i += 5) {
+    const question = paragraphs[i].text;
+    const answers = paragraphs.slice(i + 1, i + 5);
+    
+    // Tìm đáp án đúng
+    const correctIndex = answers.findIndex(a => a.isCorrect);
+    
+    if (correctIndex === -1) {
+      console.log("Không tìm thấy đáp án đúng cho câu:", question);
+      continue;
+    }
+    
+    // Kiểm tra dòng giải thích (paragraph tiếp theo hoặc trong answers)
+    let giaiThich = "";
+    const nextPara = paragraphs[i + 5];
+    if (nextPara) {
+      const noteMatch = nextPara.text.match(/^(Note|Giải thích|Lưu ý|Lời giải|Explanation):?\s*(.*)/i);
+      if (noteMatch) {
+        giaiThich = noteMatch[2].trim();
+      } else if (!/^[A-D][.)]/.test(nextPara.text)) {
+        // Không phải đáp án => có thể là giải thích
+        giaiThich = nextPara.text;
+      }
+    }
+    
+    // Parse đáp án - bỏ prefix "A. ", "B. ", "C. ", "D. "
+    const danhSachDapAn = answers.map(a => {
+      if (a.correctText) {
+        return a.correctText;
+      }
+      return a.text.replace(/^[A-D]\.\s*/, '').trim();
+    });
+    
+    // Tạo object câu hỏi - đúng format model
+    const cauHoi = {
+      noiDungCauHoi: question,
+      cacDapAn: danhSachDapAn.map((nd, idx) => ({
+        noiDungDapAn: nd,
+        laDapAnDung: idx === correctIndex
+      })),
+      giaiThich
+    };
+    
+    cauHois.push(cauHoi);
+    console.log("Parsed:", question.substring(0, 30), "=> Correct:", danhSachDapAn[correctIndex], giaiThich ? "(Note: " + giaiThich.substring(0, 20) + ")" : "");
+  }
+  
+  console.log("Total questions parsed:", cauHois.length);
+  return cauHois;
+}
 
 module.exports = baiGiangController;
