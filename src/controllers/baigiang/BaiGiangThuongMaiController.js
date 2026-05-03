@@ -77,12 +77,20 @@ exports.muaBaiGiang = async (req, res) => {
   }
 };
 
-// Lấy danh sách bài giảng đã mua của học sinh
+// Lấy danh sách bài giảng đã mua của học sinh (có phân trang và tìm kiếm)
 exports.getDanhSachDaMua = async (req, res) => {
   try {
     const id_hoc_sinh = req.user.id;
+    const { page = 1, limit = 10, search = "" } = req.query;
 
-    const danhSach = await BaiGiangDaMua.find({ id_hoc_sinh })
+    // Build query
+    const query = { id_hoc_sinh };
+
+    // Get total count
+    const total = await BaiGiangDaMua.countDocuments(query);
+
+    // Get paginated data with search
+    const danhSach = await BaiGiangDaMua.find(query)
       .populate({
         path: 'id_bai_giang',
         select: 'ten_bai_giang anhDaiDien giaBaiGiang thoi_gian_lam_bai danhSachCauHoi',
@@ -91,11 +99,32 @@ exports.getDanhSachDaMua = async (req, res) => {
           select: 'ten_lop'
         }
       })
-      .sort({ ngay_mua: -1 });
+      .sort({ ngay_mua: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    // Filter by search in memory (or use $regex in MongoDB)
+    let filteredData = danhSach;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredData = danhSach.filter(item => {
+        const tenBaiGiang = item.id_bai_giang?.ten_bai_giang?.toLowerCase() || "";
+        const tenLop = item.id_bai_giang?.id_lop_hoc?.ten_lop?.toLowerCase() || "";
+        return tenBaiGiang.includes(searchLower) || tenLop.includes(searchLower);
+      });
+    }
 
     res.status(200).json({
       success: true,
-      data: danhSach
+      data: {
+        items: filteredData,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      }
     });
 
   } catch (error) {
@@ -288,12 +317,20 @@ exports.xemDapAn = async (req, res) => {
   try {
     const id_hoc_sinh = req.user.id;
     const { id_bai_giang } = req.params;
+    const { lan_thi } = req.query;
 
-    // Lấy kết quả thi mới nhất
-    const ketQua = await KetQuaBaiThi.findOne({
-      id_hoc_sinh,
-      id_bai_giang
-    }).sort({ lan_thi: -1 }).populate('id_bai_giang');
+    // Tạo query
+    const query = { id_hoc_sinh, id_bai_giang };
+    
+    // Nếu có lan_thi thì tìm đúng lần đó
+    if (lan_thi) {
+      query.lan_thi = parseInt(lan_thi);
+    }
+
+    // Lấy kết quả thi (mới nhất nếu không có lan_thi)
+    const ketQua = await KetQuaBaiThi.findOne(query)
+      .sort(lan_thi ? { lan_thi: -1 } : { lan_thi: -1 })
+      .populate('id_bai_giang');
 
     if (!ketQua) {
       return res.status(404).json({ success: false, message: "Chưa có kết quả thi" });
@@ -324,6 +361,8 @@ exports.xemDapAn = async (req, res) => {
       success: true,
       data: {
         ketQua: {
+          idBaiGiang: ketQua.id_bai_giang._id,
+          tenBaiGiang: ketQua.id_bai_giang.ten_bai_giang,
           lanThi: ketQua.lan_thi,
           diem: ketQua.diem,
           soCauDung: ketQua.so_cau_dung,
@@ -620,18 +659,45 @@ exports.thongKeDiemBaiGiang = async (req, res) => {
   }
 };
 
-// Lấy lịch sử thi của học sinh
+// Lấy lịch sử thi của học sinh (có phân trang và tìm kiếm)
 exports.getLichSuThi = async (req, res) => {
   try {
     const id_hoc_sinh = req.user.id;
+    const { page = 1, limit = 10, search = "" } = req.query;
 
-    const lichSu = await KetQuaBaiThi.find({ id_hoc_sinh })
+    // Build query
+    const query = { id_hoc_sinh };
+
+    // Get total count
+    const total = await KetQuaBaiThi.countDocuments(query);
+
+    // Get paginated data
+    let danhSach = await KetQuaBaiThi.find(query)
       .populate('id_bai_giang', 'ten_bai_giang anhDaiDien')
-      .sort({ ngay_lam_bai: -1 });
+      .sort({ ngay_lam_bai: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    // Filter by search
+    if (search) {
+      const searchLower = search.toLowerCase();
+      danhSach = danhSach.filter(item => {
+        const tenBaiGiang = item.id_bai_giang?.ten_bai_giang?.toLowerCase() || "";
+        return tenBaiGiang.includes(searchLower);
+      });
+    }
 
     res.status(200).json({
       success: true,
-      data: lichSu
+      data: {
+        items: danhSach,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      }
     });
 
   } catch (error) {
