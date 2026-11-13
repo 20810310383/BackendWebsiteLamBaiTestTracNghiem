@@ -4,6 +4,7 @@ const lopHocController = require("../controllers/lophoc/lopHocController");
 const { protect } = require("../middlewares/authMiddleware");
 const isAdmin = require("../middlewares/adminMiddleware");
 const {  checkRole } = require("../middlewares/authMiddlewareFull");
+router.get('/pending-requests', protect, checkRole(['admin', 'giaovien']), lopHocController.pendingRequests);
 // 🔒 Tất cả các route bên dưới đều yêu cầu đăng nhập
 // router.use(protect);
 

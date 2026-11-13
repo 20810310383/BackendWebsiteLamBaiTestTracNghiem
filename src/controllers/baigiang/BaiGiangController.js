@@ -4,6 +4,8 @@ const mammoth = require("mammoth");
 const cheerio = require("cheerio");
 const fs = require("fs");
 const path = require("path");
+const studentQuestions = require("../../utils/studentQuestions");
+const BaiGiangDaMua = require('../../models/BaiGiangDaMua');
 
 const baiGiangController = {
   // ============================================================
@@ -201,16 +203,7 @@ const baiGiangController = {
       // Ẩn đáp án đúng với học viên khi làm bài
       let danhSachCauHoiHienThi = baiGiang.danhSachCauHoi;
       if (req.user.role === 'hocsinh') {
-        danhSachCauHoiHienThi = baiGiang.danhSachCauHoi.map(cauHoi => ({
-          _id: cauHoi._id,
-          noiDungCauHoi: cauHoi.noiDungCauHoi,
-          cacDapAn: cauHoi.cacDapAn.map(dapAn => ({
-            _id: dapAn._id,
-            noiDungDapAn: dapAn.noiDungDapAn
-            // Ẩn laDapAnDung
-          })),
-          giaiThich: cauHoi.giaiThich
-        }));
+        danhSachCauHoiHienThi = studentQuestions(baiGiang.danhSachCauHoi);
       }
 
       res.status(200).json({
@@ -359,10 +352,15 @@ const baiGiangController = {
         BaiGiang.countDocuments({ id_lop_hoc: lopHoc._id })
       ]);
 
+      const owned = req.user.role === 'hocsinh'
+        ? await BaiGiangDaMua.find({ id_hoc_sinh: req.user.id, id_bai_giang: { $in: baiGiangs.map(bg => bg._id) } }).select('id_bai_giang').lean()
+        : [];
+      const ownedIds = new Set(owned.map(item => String(item.id_bai_giang)));
       res.status(200).json({
         success: true,
         baiGiangs: baiGiangs.map(bg => ({
           ...bg.toObject(),
+          daSoHuu: ownedIds.has(String(bg._id)),
           soCauHoi: bg.danhSachCauHoi?.length || 0,
           danhSachCauHoi: undefined // Không trả về câu hỏi ở đây
         })),

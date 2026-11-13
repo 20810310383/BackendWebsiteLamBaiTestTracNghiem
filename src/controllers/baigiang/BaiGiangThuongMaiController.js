@@ -4,6 +4,8 @@ const KetQuaBaiThi = require("../../models/KetQuaBaiThi");
 const BaiGiang = require("../../models/BaiGiang");
 const NguoiDung = require("../../models/NguoiDung");
 const LopHoc = require("../../models/LopHoc");
+const studentQuestions = require("../../utils/studentQuestions");
+const studentListingPage = require("../../utils/studentListingPage");
 
 /**
  * ================================
@@ -82,13 +84,7 @@ exports.muaBaiGiang = async (req, res) => {
 exports.getDanhSachDaMua = async (req, res) => {
   try {
     const id_hoc_sinh = req.user.id;
-    const { page = 1, limit = 10, search = "" } = req.query;
-
-    // Build query
-    const query = { id_hoc_sinh };
-
-    // Get total count
-    const total = await BaiGiangDaMua.countDocuments(query);
+    const { query, skip, pagination, summary } = await studentListingPage(BaiGiangDaMua, id_hoc_sinh, req.query);
 
     // Get paginated data with search
     const danhSach = await BaiGiangDaMua.find(query)
@@ -100,31 +96,22 @@ exports.getDanhSachDaMua = async (req, res) => {
           select: 'ten_lop'
         }
       })
-      .sort({ ngay_mua: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    // Filter by search in memory (or use $regex in MongoDB)
-    let filteredData = danhSach;
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredData = danhSach.filter(item => {
-        const tenBaiGiang = item.id_bai_giang?.ten_bai_giang?.toLowerCase() || "";
-        const tenLop = item.id_bai_giang?.id_lop_hoc?.ten_lop?.toLowerCase() || "";
-        return tenBaiGiang.includes(searchLower) || tenLop.includes(searchLower);
-      });
-    }
+      .sort({ ngay_mua: -1, _id: -1 })
+      .skip(skip)
+      .limit(pagination.limit);
 
     res.status(200).json({
       success: true,
       data: {
-        items: filteredData,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
-          totalPages: Math.ceil(total / limit)
-        }
+        items: danhSach.map(item => {
+          const result = item.toObject();
+          if (result.id_bai_giang) {
+            result.id_bai_giang.danhSachCauHoi = studentQuestions(result.id_bai_giang.danhSachCauHoi);
+          }
+          return result;
+        }),
+        pagination,
+        summary,
       }
     });
 
@@ -665,40 +652,21 @@ exports.thongKeDiemBaiGiang = async (req, res) => {
 exports.getLichSuThi = async (req, res) => {
   try {
     const id_hoc_sinh = req.user.id;
-    const { page = 1, limit = 10, search = "" } = req.query;
-
-    // Build query
-    const query = { id_hoc_sinh };
-
-    // Get total count
-    const total = await KetQuaBaiThi.countDocuments(query);
+    const { query, skip, pagination, summary } = await studentListingPage(KetQuaBaiThi, id_hoc_sinh, req.query);
 
     // Get paginated data
-    let danhSach = await KetQuaBaiThi.find(query)
+    const danhSach = await KetQuaBaiThi.find(query)
       .populate('id_bai_giang', 'ten_bai_giang anhDaiDien')
-      .sort({ ngay_lam_bai: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    // Filter by search
-    if (search) {
-      const searchLower = search.toLowerCase();
-      danhSach = danhSach.filter(item => {
-        const tenBaiGiang = item.id_bai_giang?.ten_bai_giang?.toLowerCase() || "";
-        return tenBaiGiang.includes(searchLower);
-      });
-    }
+      .sort({ ngay_lam_bai: -1, _id: -1 })
+      .skip(skip)
+      .limit(pagination.limit);
 
     res.status(200).json({
       success: true,
       data: {
         items: danhSach,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
-          totalPages: Math.ceil(total / limit)
-        }
+        pagination,
+        summary,
       }
     });
 
