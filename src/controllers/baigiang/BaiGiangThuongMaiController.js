@@ -350,6 +350,7 @@ exports.xemDapAn = async (req, res) => {
       success: true,
       data: {
         ketQua: {
+          idKetQua: ketQua._id,
           idBaiGiang: ketQua.id_bai_giang._id,
           tenBaiGiang: ketQua.id_bai_giang.ten_bai_giang,
           lanThi: ketQua.lan_thi,

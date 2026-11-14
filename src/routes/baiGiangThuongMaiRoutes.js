@@ -2,6 +2,16 @@ const express = require("express");
 const router = express.Router();
 const BaiGiangThuongMaiController = require("../controllers/baigiang/BaiGiangThuongMaiController");
 const authMiddleware = require("../middlewares/authMiddleware").protect;
+const { rateLimit } = require("express-rate-limit");
+const giaiThichAI = require("../controllers/baigiang/giaiThichAI");
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 15,
+  keyGenerator: (req) => String(req.user.id),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau một phút." },
+});
 
 /**
  * ================================
@@ -23,6 +33,7 @@ router.post("/nop-bai-thi", authMiddleware, BaiGiangThuongMaiController.nopBaiTh
 
 // Xem đáp án
 router.get("/xem-dap-an/:id_bai_giang", authMiddleware, BaiGiangThuongMaiController.xemDapAn);
+router.post("/lich-su-thi/:idKetQua/cau-hoi/:index/giai-thich-ai", authMiddleware, aiLimiter, giaiThichAI);
 
 // Lịch sử thi
 router.get("/lich-su-thi", authMiddleware, BaiGiangThuongMaiController.getLichSuThi);
