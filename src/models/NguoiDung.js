@@ -21,6 +21,7 @@ const nguoiDungSchema = new mongoose.Schema({
   // Xác thực 
   maOTP: { type: String, default: null },
   isActive: { type: Boolean, default: false },
+  last_seen_at: { type: Date, default: null, select: false },
   currentToken: { type: String }
 }, { timestamps: true });
 

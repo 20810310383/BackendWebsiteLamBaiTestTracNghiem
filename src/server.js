@@ -3,6 +3,7 @@ const { Server } = require("socket.io");
 const app = require("./app");
 const jwt = require('jsonwebtoken');
 const NguoiDung = require('./models/NguoiDung');
+const createPresence = require('./realtime/presence');
 
 const PORT = process.env.PORT || 8821;
 
@@ -20,6 +21,7 @@ const io = new Server(server, {
 
 // 🟢 3. "Gắn" io vào app để dùng được ở mọi nơi (Controller)
 app.set("socketio", io);
+const presence = createPresence(io);
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth?.token;
@@ -35,6 +37,7 @@ io.use(async (socket, next) => {
 io.on("connection", (socket) => {
   const user = socket.data.user;
   socket.join(`user:${user.id}`);
+  presence.register(socket);
   if (user.role === 'admin') socket.join('admins');
   socket.on('clock:sync', (reply) => { if (typeof reply === 'function') reply({ now: Date.now() }); });
   console.log("⚡ Có thiết bị kết nối Socket:", socket.id);

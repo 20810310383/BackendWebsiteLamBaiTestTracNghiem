@@ -343,6 +343,7 @@ const baiGiangController = {
       }
 
       await lopHoc.populate('danh_sach_hoc_vien.id_hoc_vien', 'ho_ten ma_so anh_dai_dien');
+      await lopHoc.populate('id_giaovien', 'ho_ten ma_so anh_dai_dien');
       const [baiGiangs, total] = await Promise.all([
         BaiGiang.find({ id_lop_hoc: lopHoc._id })
           // .populate('monHoc', 'ten_mon_hoc')
@@ -372,6 +373,12 @@ const baiGiangController = {
           _id: lopHoc._id,
           ten_lop: lopHoc.ten_lop,
           ma_lop_random: lopHoc.ma_lop_random,
+          giaoVien: lopHoc.id_giaovien ? {
+            _id: lopHoc.id_giaovien._id,
+            ho_ten: lopHoc.id_giaovien.ho_ten,
+            ma_so: lopHoc.id_giaovien.ma_so,
+            anh_dai_dien: lopHoc.id_giaovien.anh_dai_dien,
+          } : null,
           hocVien: lopHoc.danh_sach_hoc_vien
             .filter(member => member.trang_thai_phe_duyet === 'da_tham_gia' && member.id_hoc_vien)
             .map(member => ({
