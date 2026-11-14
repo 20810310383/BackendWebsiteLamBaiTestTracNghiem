@@ -13,6 +13,7 @@ const LopHoc = require('../src/models/LopHoc');
 const NguoiDung = require('../src/models/NguoiDung');
 const Conversation = require('../src/models/ChatConversation');
 const Message = require('../src/models/ChatMessage');
+const Call = require('../src/models/CallSession');
 const id = text => new mongoose.Types.ObjectId(text.repeat(24));
 const ids = { classA: id('a'), classB: id('b'), alice: id('1'), bob: id('2'), outsider: id('3'), teacher: id('4'), conversation: id('5'), message: id('6') };
 const users = Object.fromEntries(['alice', 'bob', 'outsider', 'teacher'].map(name => [String(ids[name]), { _id: ids[name], ho_ten: name, role: name === 'teacher' ? 'giaovien' : 'hocsinh', isActive: true }]));
@@ -20,9 +21,12 @@ const classes = {
   [String(ids.classA)]: { _id: ids.classA, ten_lop: 'A', id_giaovien: ids.teacher, danh_sach_hoc_vien: [ids.alice, ids.bob].map(id => ({ id_hoc_vien: id, trang_thai_phe_duyet: 'da_tham_gia' })) },
   [String(ids.classB)]: { _id: ids.classB, ten_lop: 'B', id_giaovien: ids.teacher, danh_sach_hoc_vien: [...[ids.alice, ids.bob].map(id => ({ id_hoc_vien: id, trang_thai_phe_duyet: 'da_tham_gia' })), { id_hoc_vien: ids.outsider, trang_thai_phe_duyet: 'cho_phe_duyet' }] },
 };
-const originals = { protect: auth.protect, classFind: LopHoc.findById, classExists: LopHoc.exists, userFindById: NguoiDung.findById, userFind: NguoiDung.find, conversationFind: Conversation.find, conversationFindOne: Conversation.findOne, conversationFindById: Conversation.findById, conversationUpsert: Conversation.findOneAndUpdate, conversationUpdate: Conversation.updateOne, messageUpsert: Message.findOneAndUpdate, messageUpdate: Message.updateMany, messageFind: Message.find, messageFindOne: Message.findOne, messageCount: Message.countDocuments };
+const originals = { protect: auth.protect, classFind: LopHoc.findById, classExists: LopHoc.exists, userFindById: NguoiDung.findById, userFind: NguoiDung.find, conversationFind: Conversation.find, conversationFindOne: Conversation.findOne, conversationFindById: Conversation.findById, conversationUpsert: Conversation.findOneAndUpdate, conversationUpdate: Conversation.updateOne, messageUpsert: Message.findOneAndUpdate, messageUpdate: Message.updateMany, messageFind: Message.find, messageFindOne: Message.findOne, messageCount: Message.countDocuments, callFind: Call.find, callFindOne: Call.findOne };
 auth.protect = (req, res, next) => { req.user = users[req.headers['x-user']]; if (!req.user) return res.sendStatus(401); next(); };
 const lean = value => ({ select() { return this; }, lean: async () => value });
+const queryChain = value => ({ select() { return this; }, sort() { return this; }, limit() { return this; }, lean: async () => value });
+Call.find = () => queryChain([]);
+Call.findOne = () => queryChain(null);
 LopHoc.findById = value => lean(classes[String(value)] || null);
 LopHoc.exists = async query => Object.values(classes).some(classroom => (query.$and || []).every(condition => condition.id_giaovien ? String(classroom.id_giaovien) === String(condition.id_giaovien) : classroom.danh_sach_hoc_vien.some(member => String(member.id_hoc_vien) === String(condition.danh_sach_hoc_vien.$elemMatch.id_hoc_vien) && member.trang_thai_phe_duyet === 'da_tham_gia')));
 NguoiDung.findById = value => lean(users[String(value)] || null);
@@ -46,7 +50,7 @@ Message.countDocuments = async () => 0;
 const router = require('../src/routes/chatRoutes');
 let server, base, app;
 before(async () => { app = express(); app.use(express.json()); app.use('/api/chat', router); await new Promise(resolve => { server = app.listen(0, '127.0.0.1', resolve); }); base = `http://127.0.0.1:${server.address().port}/api/chat`; });
-after(async () => { await new Promise(resolve => server.close(resolve)); auth.protect = originals.protect; LopHoc.findById = originals.classFind; LopHoc.exists = originals.classExists; NguoiDung.findById = originals.userFindById; NguoiDung.find = originals.userFind; Conversation.find = originals.conversationFind; Conversation.findOne = originals.conversationFindOne; Conversation.findById = originals.conversationFindById; Conversation.findOneAndUpdate = originals.conversationUpsert; Conversation.updateOne = originals.conversationUpdate; Message.findOneAndUpdate = originals.messageUpsert; Message.updateMany = originals.messageUpdate; Message.find = originals.messageFind; Message.findOne = originals.messageFindOne; Message.countDocuments = originals.messageCount; });
+after(async () => { await new Promise(resolve => server.close(resolve)); auth.protect = originals.protect; LopHoc.findById = originals.classFind; LopHoc.exists = originals.classExists; NguoiDung.findById = originals.userFindById; NguoiDung.find = originals.userFind; Conversation.find = originals.conversationFind; Conversation.findOne = originals.conversationFindOne; Conversation.findById = originals.conversationFindById; Conversation.findOneAndUpdate = originals.conversationUpsert; Conversation.updateOne = originals.conversationUpdate; Message.findOneAndUpdate = originals.messageUpsert; Message.updateMany = originals.messageUpdate; Message.find = originals.messageFind; Message.findOne = originals.messageFindOne; Message.countDocuments = originals.messageCount; Call.find = originals.callFind; Call.findOne = originals.callFindOne; });
 async function post(path, user, body) { const response = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-user': String(user) }, body: JSON.stringify(body) }); return { status: response.status, body: await response.json() }; }
 async function get(path, user) { const response = await fetch(base + path, { headers: { 'x-user': String(user) } }); return { status: response.status, body: await response.json() }; }
 test('participants share one pair across classes; teacher can contact a student', async () => {
@@ -78,6 +82,55 @@ test('history includes legacy threads across classes and preserves their origina
     assert.equal(result.body.items[0].text, 'Cũ');
     assert.equal(result.body.items[0]._id, String(ids.message));
   } finally { Message.find = previousFind; }
+});
+test('call and message history is ordered, paginated together, and shows real recorded duration', async () => {
+  const previous = { messageFind: Message.find, messageFindOne: Message.findOne, callFind: Call.find, callFindOne: Call.findOne };
+  const entries = Array.from({ length: 56 }, (_, index) => ({
+    _id: new mongoose.Types.ObjectId((index + 100).toString(16).padStart(24, '0')),
+    conversationId: ids.conversation, createdAt: new Date(Date.UTC(2026, 10, 14, 10, 0, 0) - index * 1000),
+    ...(index % 2 ? { text: `Tin ${index}`, senderId: ids.alice, recipientId: ids.bob } : {
+      participants: [ids.alice, ids.bob], callerId: ids.alice, calleeId: ids.bob, mode: 'video', status: 'ended',
+      acceptedAt: new Date('2026-11-14T09:00:00Z'), endedAt: new Date('2026-11-14T09:02:05Z'), wasAnswered: true,
+    }),
+  }));
+  const filtered = (query, isCall) => entries.filter(item => Boolean(item.mode) === isCall && (!query.$or || query.$or.some(condition => {
+    const time = new Date(item.createdAt).getTime();
+    if (condition.createdAt?.$lt) return time < new Date(condition.createdAt.$lt).getTime();
+    if (time !== new Date(condition.createdAt).getTime()) return false;
+    return condition._id?.$lt ? String(item._id) < String(condition._id.$lt) : String(item._id) === String(condition._id);
+  })));
+  Message.find = query => queryChain(filtered(query, false));
+  Call.find = query => queryChain(filtered(query, true));
+  Message.findOne = query => queryChain(entries.find(item => !item.mode && String(item._id) === String(query._id)) || null);
+  Call.findOne = query => queryChain(entries.find(item => item.mode && String(item._id) === String(query._id)) || null);
+  try {
+    const first = await get(`/conversations/${ids.conversation}/messages`, ids.alice);
+    assert.equal(first.status, 200); assert.equal(first.body.items.length, 50); assert.equal(first.body.hasMore, true);
+    const record = first.body.items.find(item => item.type === 'call');
+    assert.equal(record.durationSeconds, 125); assert.equal(record.mode, 'video');
+    const oldest = first.body.items[0];
+    const second = await get(`/conversations/${ids.conversation}/messages?before=${oldest._id}&beforeType=${oldest.type === 'call' ? 'call' : 'message'}`, ids.alice);
+    assert.equal(second.status, 200); assert.equal(second.body.items.length, 6); assert.equal(second.body.hasMore, false);
+    assert.equal(new Set([...first.body.items, ...second.body.items].map(item => item._id)).size, 56);
+    const read = await post(`/conversations/${ids.conversation}/read`, ids.alice, { through: record._id, throughType: 'call' });
+    assert.equal(read.status, 200);
+  } finally { Message.find = previous.messageFind; Message.findOne = previous.messageFindOne; Call.find = previous.callFind; Call.findOne = previous.callFindOne; }
+});
+test('a conversation with calls but no text still appears in the inbox', async () => {
+  const previous = { conversationFind: Conversation.find, messageFindOne: Message.findOne, callFindOne: Call.findOne };
+  const call = { _id: id('8'), conversationId: ids.conversation, participants: [ids.alice, ids.bob], callerId: ids.alice, calleeId: ids.bob, mode: 'audio', status: 'missed', createdAt: new Date('2026-11-14T10:00:00Z') };
+  Conversation.find = query => queryChain(query.pairKey ? [{ _id: ids.conversation }, { _id: oldThreadId }] : [conversation]);
+  Message.findOne = () => queryChain(null);
+  let callFilter;
+  Call.findOne = query => { callFilter = query; return queryChain(call); };
+  try {
+    const result = await get('/conversations', ids.alice);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.items.length, 1);
+    assert.equal(result.body.items[0].lastMessage.type, 'call');
+    assert.equal(result.body.items[0].lastMessage.status, 'missed');
+    assert.equal(String(callFilter.participants), String(ids.alice));
+  } finally { Conversation.find = previous.conversationFind; Message.findOne = previous.messageFindOne; Call.findOne = previous.callFindOne; }
 });
 test('access ends when the pair no longer shares an approved class', async () => {
   const a = classes[String(ids.classA)].danh_sach_hoc_vien;

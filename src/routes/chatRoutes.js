@@ -6,6 +6,7 @@ const LopHoc = require('../models/LopHoc');
 const NguoiDung = require('../models/NguoiDung');
 const Conversation = require('../models/ChatConversation');
 const Message = require('../models/ChatMessage');
+const Call = require('../models/CallSession');
 const router = express.Router();
 router.use(protect);
 const validId = value => mongoose.isValidObjectId(value);
@@ -14,6 +15,15 @@ const canAccess = (classroom, user) => Boolean(classroom && user && user.isActiv
   (user.role === 'hocsinh' && classroom.danh_sach_hoc_vien.some(member => String(member.id_hoc_vien) === String(user._id) && member.trang_thai_phe_duyet === 'da_tham_gia'))
 ));
 const serializeUser = user => ({ _id: user._id, ho_ten: user.ho_ten, ma_so: user.ma_so, anh_dai_dien: user.anh_dai_dien, role: user.role });
+const completedCalls = ['ended', 'missed', 'declined', 'busy'];
+const serializeCall = call => ({
+  _id: call._id, type: 'call', conversationId: call.conversationId,
+  callerId: call.callerId, calleeId: call.calleeId, mode: call.mode,
+  status: call.status, createdAt: call.createdAt, acceptedAt: call.acceptedAt,
+  endedAt: call.endedAt, endedBy: call.endedBy, wasAnswered: call.wasAnswered, durationApproximate: Boolean(call.durationApproximate),
+  durationSeconds: call.acceptedAt && call.endedAt ? Math.max(0, Math.floor((new Date(call.endedAt) - new Date(call.acceptedAt)) / 1000)) : null,
+});
+const compareRecent = (a, b) => new Date(b.createdAt) - new Date(a.createdAt) || String(b._id).localeCompare(String(a._id)) || Number(b.type === 'call') - Number(a.type === 'call');
 async function sharedConversation(pairKey, participants) {
   const filter = { classId: null, pairKey };
   const existing = await Conversation.findOne(filter).lean();
@@ -112,7 +122,12 @@ router.get('/conversations', async (req, res) => {
       const access = await accessConversation(conversation._id, req.user);
       if (!access) return null;
       const messageQuery = { conversationId: { $in: access.conversationIds } };
-      const [lastMessage, unread] = await Promise.all([Message.findOne(messageQuery).sort({ createdAt: -1, _id: -1 }).lean(), Message.countDocuments({ ...messageQuery, recipientId: req.user._id, seenAt: null })]);
+      const [lastText, lastCall, unread] = await Promise.all([
+        Message.findOne(messageQuery).sort({ createdAt: -1, _id: -1 }).lean(),
+        Call.findOne({ ...messageQuery, participants: req.user._id, status: { $in: completedCalls } }).sort({ createdAt: -1, _id: -1 }).lean(),
+        Message.countDocuments({ ...messageQuery, recipientId: req.user._id, seenAt: null }),
+      ]);
+      const lastMessage = [lastText, lastCall && serializeCall(lastCall)].filter(Boolean).sort(compareRecent)[0];
       if (!lastMessage) return null;
       return { conversationId: access.conversation._id, className: 'Tin nhắn riêng', peer: serializeUser(access.users.find(user => String(user._id) !== String(req.user._id))), lastMessage, unread };
     }));
@@ -124,15 +139,24 @@ router.get('/conversations/:id/messages', async (req, res) => {
     const access = await accessConversation(req.params.id, req.user);
     if (!access) return res.status(403).json({ message: 'Không thể truy cập cuộc trò chuyện' });
     const query = { conversationId: { $in: access.conversationIds } };
+    const callQuery = { ...query, participants: req.user._id, status: { $in: completedCalls } };
     if (req.query.before) {
       if (!validId(req.query.before)) return res.status(400).json({ message: 'Mốc tin nhắn không hợp lệ' });
-      const cursor = await Message.findOne({ _id: req.query.before, conversationId: { $in: access.conversationIds } }).lean();
+      if (req.query.beforeType && !['message', 'call'].includes(req.query.beforeType)) return res.status(400).json({ message: 'Loại mốc không hợp lệ' });
+      const cursor = req.query.beforeType === 'call'
+        ? await Call.findOne({ _id: req.query.before, ...callQuery }).lean()
+        : await Message.findOne({ _id: req.query.before, ...query }).lean();
       if (!cursor) return res.status(400).json({ message: 'Không tìm thấy mốc tin nhắn' });
       query.$or = [{ createdAt: { $lt: cursor.createdAt } }, { createdAt: cursor.createdAt, _id: { $lt: cursor._id } }];
+      callQuery.$or = [...query.$or];
+      if (req.query.beforeType === 'call') query.$or.push({ createdAt: cursor.createdAt, _id: cursor._id });
     }
-    const messages = await Message.find(query).sort({ createdAt: -1, _id: -1 }).limit(51).lean();
-    const hasMore = messages.length > 50;
-    res.json({ items: messages.slice(0, 50).reverse(), hasMore });
+    const [messages, calls] = await Promise.all([
+      Message.find(query).sort({ createdAt: -1, _id: -1 }).limit(51).lean(),
+      Call.find(callQuery).sort({ createdAt: -1, _id: -1 }).limit(51).lean(),
+    ]);
+    const combined = [...messages, ...calls.map(serializeCall)].sort(compareRecent);
+    res.json({ items: combined.slice(0, 50).reverse(), hasMore: combined.length > 50 });
   } catch (error) { handleError(res, error); }
 });
 router.post('/conversations/:id/messages', async (req, res) => {
@@ -156,9 +180,12 @@ router.post('/conversations/:id/read', async (req, res) => {
   try {
     const access = await accessConversation(req.params.id, req.user);
     if (!access) return res.status(403).json({ message: 'Không thể truy cập cuộc trò chuyện' });
-    const { through } = req.body;
+    const { through, throughType = 'message' } = req.body;
     if (!validId(through)) return res.status(400).json({ message: 'Mốc tin nhắn không hợp lệ' });
-    const cursor = await Message.findOne({ _id: through, conversationId: { $in: access.conversationIds } }).select('_id createdAt').lean();
+    if (!['message', 'call'].includes(throughType)) return res.status(400).json({ message: 'Loại mốc không hợp lệ' });
+    const cursor = throughType === 'call'
+      ? await Call.findOne({ _id: through, conversationId: { $in: access.conversationIds }, participants: req.user._id, status: { $in: completedCalls } }).select('_id createdAt').lean()
+      : await Message.findOne({ _id: through, conversationId: { $in: access.conversationIds } }).select('_id createdAt').lean();
     if (!cursor) return res.status(400).json({ message: 'Không tìm thấy mốc tin nhắn' });
     const filter = {
       conversationId: { $in: access.conversationIds }, recipientId: req.user._id, seenAt: null,
@@ -191,3 +218,5 @@ router.post('/conversations/:id/receipt', async (req, res) => {
 });
 module.exports = router;
 module.exports.canAccess = canAccess;
+module.exports.accessConversation = accessConversation;
+module.exports.emitToUsers = emit;
