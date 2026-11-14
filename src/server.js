@@ -4,6 +4,7 @@ const app = require("./app");
 const jwt = require('jsonwebtoken');
 const NguoiDung = require('./models/NguoiDung');
 const createPresence = require('./realtime/presence');
+const { allowOrigin } = require('./config/allowedOrigins');
 
 const PORT = process.env.PORT || 8821;
 
@@ -13,7 +14,7 @@ const server = http.createServer(app);
 // 🟢 2. Khởi tạo Socket.io gắn vào Server đó
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:2004", "http://localhost:2003", "https://ktquizz.vercel.app", "https://vuaquiz.com"],
+    origin: allowOrigin,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
   }

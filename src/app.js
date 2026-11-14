@@ -7,6 +7,7 @@ const multer = require("multer");
 
 const viewEngine = require("./config/viewEngine");
 const connectDB = require("./config/connectDB");
+const { allowOrigin } = require("./config/allowedOrigins");
 
 // ================= ROUTES =================
 const uploadImageRoute = require("./routes/uploadImageRoute");
@@ -35,21 +36,9 @@ const app = express();
 connectDB();
 
 // ================= CORS =================
-const allowedOrigins = [
-  "http://localhost:2004",
-  'chrome-extension://gimjcdniohfjmmbhhdbcogfkfkbogfmn',
-  'https://buinhat.vercel.app'
-];
-
 app.use(
   cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: allowOrigin,
     exposedHeaders: ['Content-Disposition'], // Đảm bảo header này được phép
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
