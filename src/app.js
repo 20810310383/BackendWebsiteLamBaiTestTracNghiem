@@ -37,7 +37,8 @@ connectDB();
 // ================= CORS =================
 const allowedOrigins = [
   "http://localhost:2004",
-  'chrome-extension://gimjcdniohfjmmbhhdbcogfkfkbogfmn'
+  'chrome-extension://gimjcdniohfjmmbhhdbcogfkfkbogfmn',
+  'https://buinhat.vercel.app'
 ];
 
 app.use(
