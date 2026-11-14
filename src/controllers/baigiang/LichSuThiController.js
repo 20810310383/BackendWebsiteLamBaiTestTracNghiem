@@ -2,6 +2,44 @@ const KetQuaBaiThi = require('../../models/KetQuaBaiThi');
 const NguoiDung = require('../../models/NguoiDung');
 const LopHoc = require('../../models/LopHoc');
 const BaiGiang = require('../../models/BaiGiang');
+const mongoose = require('mongoose');
+
+// Dashboard is scoped by the authenticated user and, for teachers, their own classes.
+exports.getDashboard = async (req, res) => {
+  try {
+    const days = [7, 30, 90].includes(Number(req.query.days)) ? Number(req.query.days) : 30;
+    const offset = 7 * 60 * 60 * 1000;
+    const start = new Date(Math.floor((Date.now() + offset) / 86400000) * 86400000 - offset - (days - 1) * 86400000);
+    const completed = { ngay_lam_bai: { $gte: start }, trang_thai: { $in: ['da_nop_bai', 'da_xem_dap_an'] } };
+    const personal = { ...completed, id_hoc_sinh: new mongoose.Types.ObjectId(req.user.id) };
+    const management = ['admin', 'giaovien'].includes(req.user.role);
+    const classScope = { ...completed };
+    if (req.user.role === 'giaovien') {
+      const classes = await LopHoc.find({ id_giaovien: req.user._id }).select('_id').lean();
+      classScope.id_lop_hoc = { $in: classes.map(item => item._id) };
+    }
+    const summarize = async (match, includeClasses) => {
+      const facets = {
+        summary: [{ $group: { _id: null, attempts: { $sum: 1 }, average: { $avg: '$diem' }, best: { $max: '$diem' }, students: { $addToSet: '$id_hoc_sinh' } } }, { $project: { attempts: 1, average: 1, best: 1, students: { $size: '$students' } } }],
+        daily: [{ $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$ngay_lam_bai', timezone: 'Asia/Bangkok' } }, attempts: { $sum: 1 }, average: { $avg: '$diem' } } }, { $sort: { _id: 1 } }],
+      };
+      if (includeClasses) facets.classes = [
+        { $match: { id_lop_hoc: { $ne: null } } },
+        { $group: { _id: '$id_lop_hoc', attempts: { $sum: 1 }, students: { $addToSet: '$id_hoc_sinh' }, average: { $avg: '$diem' } } },
+        { $sort: { attempts: -1, _id: 1 } }, { $limit: 6 },
+        { $lookup: { from: LopHoc.collection.name, localField: '_id', foreignField: '_id', as: 'classInfo' } },
+        { $project: { attempts: 1, average: 1, students: { $size: '$students' }, name: { $ifNull: [{ $arrayElemAt: ['$classInfo.ten_lop', 0] }, 'Lớp không còn tồn tại'] } } },
+      ];
+      const [result] = await KetQuaBaiThi.aggregate([{ $match: match }, { $facet: facets }]);
+      return { summary: result.summary[0] || { attempts: 0, average: 0, best: 0, students: 0 }, daily: result.daily, classes: result.classes || [] };
+    };
+    const [mine, classStats] = await Promise.all([summarize(personal, false), management ? summarize(classScope, true) : null]);
+    res.json({ success: true, data: { days, personal: mine, management: classStats } });
+  } catch (error) {
+    console.error('Lỗi thống kê trang chủ:', error);
+    res.status(500).json({ success: false, message: 'Không thể tải thống kê trang chủ' });
+  }
+};
 
 // Lấy lịch sử thi của tất cả học viên (Admin/GV)
 exports.getLichSuThi = async (req, res) => {
@@ -32,6 +70,9 @@ exports.getLichSuThi = async (req, res) => {
 
     // Filter theo lớp học
     if (lop_hoc_id) {
+      if (req.user.role === 'giaovien' && !query.id_lop_hoc.$in.some(id => String(id) === String(lop_hoc_id))) {
+        return res.status(403).json({ success: false, message: 'Bạn không có quyền xem lớp này' });
+      }
       query.id_lop_hoc = lop_hoc_id;
     }
 
@@ -79,6 +120,32 @@ exports.getLichSuThi = async (req, res) => {
           { id_bai_giang: { $in: baiGiangIds } }
         ]
       };
+    }
+
+    if (req.query.group_by === 'student') {
+      const matching = await KetQuaBaiThi.find({ ...query, ...searchMatch })
+        .select('id_hoc_sinh diem ngay_lam_bai').sort({ ngay_lam_bai: -1 }).lean();
+      const grouped = new Map();
+      for (const item of matching) {
+        const key = String(item.id_hoc_sinh || item._id);
+        if (!grouped.has(key)) grouped.set(key, { studentId: item.id_hoc_sinh, count: 0, sum: 0, best: null, latest: item.ngay_lam_bai });
+        const group = grouped.get(key);
+        group.count++;
+        const score = Number(item.diem) || 0;
+        group.sum += score;
+        group.best = group.best === null ? score : Math.max(group.best, score);
+      }
+      const groups = [...grouped.values()];
+      const pageNumber = Math.max(1, parseInt(page) || 1);
+      const pageLimit = Math.max(1, Math.min(100, parseInt(limit) || 10));
+      const selected = groups.slice((pageNumber - 1) * pageLimit, pageNumber * pageLimit);
+      const students = await NguoiDung.find({ _id: { $in: selected.map(group => group.studentId).filter(Boolean) } })
+        .select('ho_ten ma_so email anh_dai_dien ten_lop_sinh_hoat').lean();
+      const studentMap = new Map(students.map(student => [String(student._id), student]));
+      return res.status(200).json({ success: true, data: {
+        items: selected.map(group => ({ ...group, student: studentMap.get(String(group.studentId)) || null, average: group.sum / group.count })),
+        pagination: { page: pageNumber, limit: pageLimit, total: groups.length, totalPages: Math.ceil(groups.length / pageLimit) }
+      } });
     }
 
     // Đếm tổng

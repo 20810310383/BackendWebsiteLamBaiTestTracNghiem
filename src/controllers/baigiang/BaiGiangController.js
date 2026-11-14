@@ -322,7 +322,7 @@ const baiGiangController = {
       const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(id_lop_hoc);
       
       if (isValidObjectId) {
-        lopHoc = await LopHoc.findById({maKey: id_lop_hoc});
+        lopHoc = await LopHoc.findById(id_lop_hoc);
       } else {
         // Nếu không phải ObjectId, tìm theo ma_lop_random
         lopHoc = await LopHoc.findOne({ maKey: id_lop_hoc });
@@ -342,6 +342,7 @@ const baiGiangController = {
         return res.status(403).json({ message: "Bạn không có quyền xem bài giảng của lớp này" });
       }
 
+      await lopHoc.populate('danh_sach_hoc_vien.id_hoc_vien', 'ho_ten ma_so anh_dai_dien');
       const [baiGiangs, total] = await Promise.all([
         BaiGiang.find({ id_lop_hoc: lopHoc._id })
           // .populate('monHoc', 'ten_mon_hoc')
@@ -370,7 +371,15 @@ const baiGiangController = {
         lopHoc: {
           _id: lopHoc._id,
           ten_lop: lopHoc.ten_lop,
-          ma_lop_random: lopHoc.ma_lop_random
+          ma_lop_random: lopHoc.ma_lop_random,
+          hocVien: lopHoc.danh_sach_hoc_vien
+            .filter(member => member.trang_thai_phe_duyet === 'da_tham_gia' && member.id_hoc_vien)
+            .map(member => ({
+              _id: member.id_hoc_vien._id,
+              ho_ten: member.id_hoc_vien.ho_ten,
+              ma_so: member.id_hoc_vien.ma_so,
+              anh_dai_dien: member.id_hoc_vien.anh_dai_dien
+            }))
         }
       });
     } catch (error) {

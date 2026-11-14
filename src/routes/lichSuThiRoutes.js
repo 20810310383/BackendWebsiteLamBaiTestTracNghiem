@@ -6,6 +6,8 @@ const {  checkRole } = require("../middlewares/authMiddlewareFull");
 // Áp dụng auth middleware cho tất cả routes
 router.use(protect);
 
+router.get('/dashboard', LichSuThiController.getDashboard);
+
 // Routes cho lịch sử thi - chỉ admin và giaovien
 router.get('/danh-sach', 
   checkRole(['admin', 'giaovien']), 
