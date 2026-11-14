@@ -20,6 +20,7 @@ const baiGiangRoutes = require("./routes/baiGiangRoutes");
 const baiGiangThuongMaiRoutes = require("./routes/baiGiangThuongMaiRoutes");
 const lichSuThiRoutes = require("./routes/lichSuThiRoutes");
 const quanLyNguoiDungRoutes = require("./routes/quanLyNguoiDungRoutes");
+const chatRoutes = require("./routes/chatRoutes");
 
 // const crawlRoutes = require("./routes/crawlRoutes");
 
@@ -84,6 +85,7 @@ const routes = [
   { path: '/api/bai-giang-thuong-mai', router: baiGiangThuongMaiRoutes },
   { path: '/api/lich-su-thi', router: lichSuThiRoutes },
   { path: '/api/admin/nguoi-dung', router: quanLyNguoiDungRoutes },
+  { path: '/api/chat', router: chatRoutes },
 ];
 
 routes.forEach((r) => app.use(r.path, r.router));
